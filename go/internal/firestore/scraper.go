@@ -3,7 +3,7 @@ package firestore
 import (
 	"context"
 
-	"cmd/internal/types"
+	"github.com/google-dev-groups-gmu/ghost/go/internal/types"
 )
 
 // saves the aggregated schedule for a room

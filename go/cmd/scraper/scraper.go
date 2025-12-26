@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"cmd/internal/firestore"
-	"cmd/internal/types"
+	"github.com/google-dev-groups-gmu/ghost/go/internal/firestore"
+	"github.com/google-dev-groups-gmu/ghost/go/internal/types"
 
 	"github.com/joho/godotenv"
 )
