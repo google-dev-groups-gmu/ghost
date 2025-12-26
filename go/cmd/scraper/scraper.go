@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -118,13 +119,17 @@ func main() {
 
 	// search for classes
 	// use this to get all subjects in prod
-	// subjects, err := GetSubjects(client, token)
+	subjects, err := GetSubjects(client, token)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// in local we are only testing CS and MATH
-	var subjects = []string{"CS", "MATH"}
+	// var subjects = []string{"CS", "MATH"}
 
 	fmt.Printf("== 3 == fetching classes for %s...\n", subjects)
 
-	// for concurrency
+	// for concurrency when saving to firestore
 	// using worker pool pattern
 	var wg sync.WaitGroup
 
@@ -134,6 +139,13 @@ func main() {
 	// to access the critical section of code at a time
 	rooms := make(map[string]*types.Room)
 	var roomMu sync.Mutex
+
+	// NOTE: bodyBytes and response goes in system RAM, in go heap.
+	// they exist in RAM only while specific loop iteration is running, and when the
+	// iteration ends, they become eligible for garbage collection.
+	// so even though we are processing many subjects, the memory usage
+	// should not grow unboundedly.
+	// 8000 sections * ~2KB JSON each = ~16MB RAM worst case
 
 	for _, subj := range subjects {
 		// NOTE: banner api is stateful. which means we need to reset the search
@@ -228,22 +240,34 @@ func main() {
 
 			// no classes found, skip to next subject
 			if response.TotalCount == 0 {
-				fmt.Printf("   > No classes found for %s. Skipping.\n", subj)
+				fmt.Printf("   > no classes found for %s. Skipping.\n", subj)
 				break
 			}
 
 			// this is just to be polite
-			// and not get rate limited by the server lol
-			time.Sleep(500 * time.Millisecond)
+			// and not get rate limited and ip banned by the server lol
+			delay := 500*time.Millisecond + time.Duration(rand.Intn(1000))*time.Millisecond
+			fmt.Printf("sleeping %dms before next page...\n", delay)
+			time.Sleep(delay)
 		}
-		fmt.Printf("sleeping 2s before next subject\n")
-		time.Sleep(2 * time.Second)
+		fmt.Printf("sleeping 5s before next subject\n")
+		time.Sleep(5 * time.Second)
+
+		// NOTE: it is quite low risk that we hit rate limits here
+		// since we are only making a few hundred requests total
+		// and we iterate through subjects sequentially
+		// also, note:
+		// - wg (waitgroup) spawning goroutines only happens for firestore saves.
+		// - sleep (500ms + random) between pagination requests
+		// - sleep 5s between subject changes
+		// - we also mimic a real user with cookiejar and headers so
+		// the traffic look like a legit SPA user looking at classes
 	}
 	// wait for all goroutines to finish
 	wg.Wait()
 
 	// save rooms
-	fmt.Println("== 4 == Saving Room Schedules...")
+	fmt.Println("== 4 == saving room schedules...")
 	var roomWg sync.WaitGroup
 	// semaphore to limit concurrency
 	sem := make(chan struct{}, 20)
@@ -264,7 +288,7 @@ func main() {
 	}
 	roomWg.Wait()
 
-	fmt.Println("== DONE == all subjects processed.")
+	fmt.Println("== all subjects processed. ==")
 }
 
 // clears the search criteria in the session
@@ -373,7 +397,7 @@ func parseBannerMeetings(raw types.BannerSection) []types.Meeting {
 
 // fetch all subjects from banner
 func GetSubjects(client *http.Client, token string) ([]string, error) {
-	fmt.Println("== 0 == Fetching Subject List...")
+	fmt.Println("== 0 == fetching subject list...")
 
 	// fetch all subjects (max=500 should cover it)
 	apiURL := fmt.Sprintf(
@@ -402,6 +426,6 @@ func GetSubjects(client *http.Client, token string) ([]string, error) {
 		codes = append(codes, s.Code)
 	}
 
-	fmt.Printf("   > Found %d active subjects.\n", len(codes))
+	fmt.Printf("   > found %d active subjects.\n", len(codes))
 	return codes, nil
 }

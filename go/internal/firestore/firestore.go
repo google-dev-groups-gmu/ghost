@@ -15,11 +15,15 @@ import (
 
 var Client *firestore.Client
 
-// NOTE: DO NOT use json key to initialize the client unless you are ready to pay for secret manager
+// NOTE: DO NOT use json to initialize the client unless you are ready to pay for secret manager
 // (it is okay to do in local dev, but bad practice for production and you will have to pay for it)
 //
 // you will suffer and want to delete everything when you are deploying to GCP under free tier
 // hours spent realizing this mistake: ~8
+
+// but in google cloud functions / app engine, the client initializes automatically
+// with the service account attached to the instance
+// so we will use that method of initialization for production
 
 // init firestore client
 func Init() error {
@@ -35,7 +39,7 @@ func Init() error {
 		return err
 	}
 
-	log.Println("Firestore initialized successfully")
+	log.Println("firestore initialized successfully")
 	return nil
 }
 

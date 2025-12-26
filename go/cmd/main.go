@@ -7,9 +7,10 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+
 	"github.com/google-dev-groups-gmu/ghost/go/internal/api"
 	"github.com/google-dev-groups-gmu/ghost/go/internal/firestore"
-	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -36,8 +37,8 @@ func main() {
 
 	FRONTEND_URL := os.Getenv("FRONTEND_URL")
 	if FRONTEND_URL == "" {
+		log.Printf("frontend url not set in env")
 		FRONTEND_URL = "http://localhost:3000"
-		log.Printf("frontend url not set")
 	}
 	config.AllowOrigins = []string{FRONTEND_URL}
 	config.AllowCredentials = true
@@ -57,7 +58,13 @@ func main() {
 	// API routes
 	a := r.Group("/api")
 	{
+		// schedule for a specific room
+		a.GET("/room", api.GetSpecificRoom)
+
+		// list of rooms and schedules for a specific building
 		a.GET("/rooms", api.GetRooms)
+
+		// static building lat/long data
 		a.GET("/buildings", api.GetBuildings)
 	}
 
@@ -67,5 +74,4 @@ func main() {
 		port = "5000"
 	}
 	r.Run(":" + port)
-	log.Printf("server running on port %s", port)
 }

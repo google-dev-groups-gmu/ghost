@@ -70,3 +70,30 @@ func GetRooms(c *gin.Context) {
 	c.Header("Cache-Control", "public, max-age=3600")
 	c.JSON(http.StatusOK, rooms)
 }
+
+func GetSpecificRoom(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client := db.Client
+	if client == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "database not initialized"})
+		return
+	}
+
+	// filter by room via query param ?room=HORIZN_2014
+	roomFilter := c.Query("room")
+	doc, err := client.Collection("rooms").Doc(roomFilter).Get(ctx)
+	if err != nil {
+		log.Printf("firestore error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error reading database"})
+		return
+	}
+
+	var room types.Room
+	if err := doc.DataTo(&room); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error parsing data"})
+		return
+	}
+	c.JSON(http.StatusOK, room)
+}
