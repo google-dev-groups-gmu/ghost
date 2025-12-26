@@ -203,7 +203,9 @@ func main() {
 				for _, meeting := range meetings {
 
 					// filter unknown locations
-					if strings.Contains(meeting.Location, "Online") || strings.Contains(meeting.Location, "TBA") {
+					if strings.Contains(meeting.Location, "ON LINE") || strings.Contains(meeting.Location, "Online") ||
+						strings.Contains(meeting.Location, "OFF CAMPUS") ||
+						strings.Contains(meeting.Location, "TBA") {
 						continue
 					}
 

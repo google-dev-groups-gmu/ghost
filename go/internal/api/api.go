@@ -17,11 +17,7 @@ import (
 // returns static lat/long data for the map
 // GET /api/buildings
 func GetBuildings(c *gin.Context) {
-	buildings := map[string]map[string]interface{}{
-		"HORIZN": {"name": "Horizon Hall", "lat": 38.8296, "lng": -77.3072},
-		"EXPL":   {"name": "Exploratory Hall", "lat": 38.8291, "lng": -77.3060},
-	}
-	c.JSON(http.StatusOK, buildings)
+	c.JSON(http.StatusOK, types.Buildings)
 }
 
 // returns the full list of rooms and their schedules
