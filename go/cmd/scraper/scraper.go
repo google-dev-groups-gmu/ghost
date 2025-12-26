@@ -73,7 +73,7 @@ func main() {
 	bodyString := string(bodyBytes)
 
 	if resp.StatusCode != 200 {
-		log.Fatalf("Server returned %d", resp.StatusCode)
+		log.Fatalf("server returned %d", resp.StatusCode)
 	}
 
 	// regex to find window.synchronizerToken
@@ -81,12 +81,12 @@ func main() {
 	matches := re.FindStringSubmatch(bodyString)
 
 	if len(matches) < 2 {
-		// dumping HTML page for debugging
+		// debugging html dump
 		os.WriteFile("debug_page.html", bodyBytes, 0644)
-		log.Fatal("Could not find X-Synchronizer-Token in HTML.")
+		log.Fatal("could not find X-Synchronizer-Token in HTML.")
 	}
 	token := matches[1]
-	fmt.Printf("   > Token Found: %s\n", token)
+	fmt.Printf("	> Token Found: %s\n", token)
 
 	// setting the term
 	// all requests will happen after setting the term
@@ -99,7 +99,8 @@ func main() {
 	formData.Set("startDatepicker", "")
 	formData.Set("endDatepicker", "")
 
-	// NOTE: use the "uniqueSessionId" just to be safe
+	// NOTE: use the "uniqueSessionId" param from the cookies
+	// to mimic a real user session
 	uniqueID := fmt.Sprintf("guest%d", time.Now().Unix())
 	termUrl := fmt.Sprintf("%s/ssb/term/search?mode=search&uniqueSessionId=%s", BaseURL, uniqueID)
 
@@ -118,18 +119,21 @@ func main() {
 	// search for classes
 	// use this to get all subjects in prod
 	// subjects, err := GetSubjects(client, token)
-
 	// in local we are only testing CS and MATH
 	var subjects = []string{"CS", "MATH"}
+
 	fmt.Printf("== 3 == fetching classes for %s...\n", subjects)
 
 	// for concurrency
+	// using worker pool pattern
 	var wg sync.WaitGroup
 
-	// caching to avoid writing the same course metadata million times
-	var courseMu sync.Mutex
-	// using a set to track seen courses
-	seenCourses := make(map[string]bool)
+	// room aggregation
+	// sync.Mutex is used to protect concurrent map writes
+	// what sync.Mutex does is it allows only one goroutine
+	// to access the critical section of code at a time
+	rooms := make(map[string]*types.Room)
+	var roomMu sync.Mutex
 
 	for _, subj := range subjects {
 		// NOTE: banner api is stateful. which means we need to reset the search
@@ -151,6 +155,7 @@ func main() {
 
 			// fetch
 			req, _ = http.NewRequest("GET", apiURL, nil)
+
 			// attach the token header
 			setHeaders(req, token)
 
@@ -179,58 +184,40 @@ func main() {
 
 			// process and save
 			for _, rawSec := range response.Data {
+				// get all meetings for this section
+				meetings := parseBannerMeetings(rawSec)
 
-				// NOTE: we save course and section data separately
-				// in different root collection in firestore.
-				// this is to avoid data being 1mb< and hitting firebase document limit
-				// also it allows us to use lazy loading for courses
-				// fetch courses -> fetch sections on demand
+				roomMu.Lock()
+				for _, meeting := range meetings {
 
-				// + why not subcollection?
-				// query limitation. to use collection group queries,
-				// we cannot have subcollections:
-				// fs.Get("10492") is logically sound than fs.Get("courses/CS110/sections/10492")
-				// when we want extra search features later
-				// "give me all sections taught by prof goof" for example.
-
-				// save course info if not seen before
-				// do this synchronously to ensure we don't spam firestore with
-				// the same course title over and over
-				courseID := rawSec.Subject + rawSec.CourseNumber
-				courseMu.Lock()
-				if !seenCourses[courseID] {
-					seenCourses[courseID] = true
-
-					// course object
-					course := types.Course{
-						ID:         courseID,
-						Department: rawSec.Subject,
-						Code:       rawSec.CourseNumber,
-						Title:      rawSec.Title,
+					// filter unknown locations
+					if strings.Contains(meeting.Location, "Online") || strings.Contains(meeting.Location, "TBA") {
+						continue
 					}
 
-					go func(c types.Course) {
-						if err := firestore.SaveCourse(context.Background(), c); err != nil {
-							log.Printf("Error saving course %s: %v", c.ID, err)
+					roomID := strings.ReplaceAll(meeting.Location, " ", "_")
+
+					if _, exists := rooms[roomID]; !exists {
+						parts := strings.Split(meeting.Location, " ")
+						number := ""
+						building := meeting.Location
+						if len(parts) > 1 {
+							number = parts[len(parts)-1]
+							building = strings.Join(parts[:len(parts)-1], " ")
 						}
-					}(course)
-				}
-				courseMu.Unlock()
 
-				// save section data
-				wg.Add(1)
-				go func(raw types.BannerSection) {
-					defer wg.Done()
-
-					cleanSec := parseBannerSection(raw)
-
-					// save to firestore
-					if err := firestore.SaveSection(context.Background(), cleanSec); err != nil {
-						log.Printf("Error saving section %s: %v", cleanSec.ID, err)
-					} else {
-						fmt.Printf("   > Saved %s-%s (%s)\n", cleanSec.CourseID, cleanSec.Section, cleanSec.ID)
+						rooms[roomID] = &types.Room{
+							ID:       roomID,
+							Building: building,
+							Number:   number,
+							Schedule: []types.Meeting{},
+						}
 					}
-				}(rawSec)
+
+					// add to schedule
+					rooms[roomID].Schedule = append(rooms[roomID].Schedule, meeting)
+				}
+				roomMu.Unlock()
 			}
 
 			// pagination: increment offset
@@ -254,6 +241,29 @@ func main() {
 	}
 	// wait for all goroutines to finish
 	wg.Wait()
+
+	// save rooms
+	fmt.Println("== 4 == Saving Room Schedules...")
+	var roomWg sync.WaitGroup
+	// semaphore to limit concurrency
+	sem := make(chan struct{}, 20)
+
+	for _, r := range rooms {
+		roomWg.Add(1)
+		sem <- struct{}{}
+		go func(room *types.Room) {
+			defer roomWg.Done()
+			defer func() { <-sem }()
+
+			if err := firestore.SaveRoom(context.Background(), *room); err != nil {
+				log.Printf("Error saving room %s: %v", room.ID, err)
+			} else {
+				fmt.Printf("   > Saved Room: %s\n", room.ID)
+			}
+		}(r)
+	}
+	roomWg.Wait()
+
 	fmt.Println("== DONE == all subjects processed.")
 }
 
@@ -307,40 +317,40 @@ func getStr(s *string) string {
 	return *s
 }
 
-// parse into section type
-func parseBannerSection(raw types.BannerSection) types.Section {
-	sec := types.Section{
-		ID:       raw.CRN,                        // CRN as the unique ID
-		CourseID: raw.Subject + raw.CourseNumber, // ex) CS100
-		Section:  raw.SequenceNumber,
-		// first professor if available
-		Professor: "TBA",
-	}
+// returns a list of meetings with the course info
+func parseBannerMeetings(raw types.BannerSection) []types.Meeting {
+	var meetings []types.Meeting
 
+	// extract info
+	profName := "Unknown"
 	if len(raw.Faculty) > 0 {
-		sec.Professor = raw.Faculty[0].DisplayName
+		profName = raw.Faculty[0].DisplayName
 	}
 
-	// parse meetings
+	info := types.MeetingInfo{
+		ID:        raw.CRN,
+		CourseID:  raw.Subject + raw.CourseNumber,
+		Section:   raw.SequenceNumber,
+		Professor: profName,
+	}
+
 	for _, mf := range raw.MeetingsFaculty {
 		mt := mf.MeetingTime
 
-		if mt.BeginTime == nil || mt.EndTime == nil {
-			continue
-		}
-
-		// converting 1000 -> 600 minutes
 		startMin := parseTimeStr(mt.BeginTime)
 		endMin := parseTimeStr(mt.EndTime)
 
-		// handle potential null location
-		loc := getStr(mt.Building) + " " + getStr(mt.Room)
-		if strings.TrimSpace(loc) == "" {
-			loc = "Online / TBA"
+		if startMin == 0 || endMin == 0 {
+			continue
 		}
 
-		// banner stores days as booleans
-		// need to create a meeting for EACH true day
+		bldg := getStr(mt.Building)
+		room := getStr(mt.Room)
+		location := fmt.Sprintf("%s %s", bldg, room)
+		if bldg == "" || room == "" {
+			location = "TBA"
+		}
+
 		daysMap := map[int]bool{
 			0: mt.Sunday, 1: mt.Monday, 2: mt.Tuesday,
 			3: mt.Wednesday, 4: mt.Thursday, 5: mt.Friday, 6: mt.Saturday,
@@ -348,16 +358,17 @@ func parseBannerSection(raw types.BannerSection) types.Section {
 
 		for dayCode, isActive := range daysMap {
 			if isActive {
-				sec.Meetings = append(sec.Meetings, types.Meeting{
+				meetings = append(meetings, types.Meeting{
 					Day:       dayCode,
 					StartTime: startMin,
 					EndTime:   endMin,
-					Location:  loc,
+					Location:  location,
+					Label:     []types.MeetingInfo{info},
 				})
 			}
 		}
 	}
-	return sec
+	return meetings
 }
 
 // fetch all subjects from banner
