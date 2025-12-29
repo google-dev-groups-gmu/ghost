@@ -1,65 +1,110 @@
 "use client";
 
 import { useState } from "react";
-import Map, { Marker, Popup } from "react-map-gl/mapbox";
+import Map, { Layer, Marker, Popup, Source } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useRouter } from "next/navigation";
 import { buildings, type buildingInfo } from "@/types/buildings";
-import { MAPBOX_TOKEN, mapStyle, MAX_BOUNDS } from "@/types/map";
+import { campusMask, MAPBOX_TOKEN, mapStyle, MAX_BOUNDS } from "@/types/map";
 
 export default function CampusMap() {
     const router = useRouter();
     const [hoverInfo, setHoverInfo] = useState<buildingInfo | null>(null);
 
     return (
-        <div className="relative w-screen h-screen bg-[#1a1a1a]">
+        <div className="relative w-screen h-screen">
             <Map
                 initialViewState={{
                     zoom: 15,
                     pitch: 30,
                     bearing: -20,
+                    longitude: -77.3074,
+                    latitude: 38.8299,
                 }}
-                style={{ width: "100vw", height: "100vh" }}
                 mapStyle={mapStyle}
                 mapboxAccessToken={MAPBOX_TOKEN}
                 maxBounds={MAX_BOUNDS}
                 dragRotate={false}
+                onLoad={(e) => {
+                    const map = e.target;
+
+                    try {
+                        map.setConfigProperty(
+                            "basemap",
+                            "showPointOfInterestLabels",
+                            false
+                        );
+                        map.setConfigProperty(
+                            "basemap",
+                            "showPlaceLabels",
+                            false
+                        );
+                        map.setConfigProperty(
+                            "basemap",
+                            "showRoadLabels",
+                            false
+                        );
+                        map.setConfigProperty(
+                            "basemap",
+                            "showTransitLabels",
+                            false
+                        );
+                    } catch (error) {}
+
+                    const layersToHide = [
+                        "poi-label",
+                        "road-label",
+                        "transit-label",
+                    ];
+                    layersToHide.forEach((layer) => {
+                        if (map.getLayer(layer)) {
+                            map.setLayoutProperty(layer, "visibility", "none");
+                        }
+                    });
+                }}
             >
-                {buildings.map((b) => (
-                    <Marker
-                        key={b.id}
-                        longitude={b.lng}
-                        latitude={b.lat}
-                        anchor="bottom"
-                        onClick={(e) => {
-                            e.originalEvent.stopPropagation();
-                            router.push(`/building/${b.id}`);
+                <Source id="mask-source" type="geojson" data={campusMask}>
+                    <Layer
+                        id="world-mask"
+                        type="fill"
+                        paint={{
+                            "fill-color": "rgba(0, 0, 0, 0.5)",
                         }}
-                    >
-                        <div
-                            className="w-3 h-3 rounded-full cursor-pointer hover:scale-150 transition-transform"
-                            onMouseEnter={() => setHoverInfo(b)}
-                            onMouseLeave={() => setHoverInfo(null)}
-                            style={{
-                                backgroundColor:
-                                    b.status === "ghost"
-                                        ? "#ffffffff"
-                                        : "#000000ff",
+                    />
+                </Source>
+                {buildings.map((b) => (
+                    <div key={b.id}>
+                        <Marker
+                            key={b.id}
+                            longitude={b.lng}
+                            latitude={b.lat}
+                            anchor="bottom"
+                            onClick={(e) => {
+                                e.originalEvent.stopPropagation();
+                                router.push(`/building/${b.id}`);
                             }}
-                        />
-                    </Marker>
+                        >
+                            <div
+                                className="w-fit px-2 rounded-md cursor-pointer flex items-center justify-center shadow-lg bg-black/25"
+                                onMouseEnter={() => setHoverInfo(b)}
+                                onMouseLeave={() => setHoverInfo(null)}
+                            >
+                                <span>{b.id}</span>
+                            </div>
+                        </Marker>
+                    </div>
                 ))}
 
                 {hoverInfo && (
                     <Popup
                         longitude={hoverInfo.lng}
                         latitude={hoverInfo.lat}
-                        offset={20}
+                        offset={24}
                         closeButton={false}
                         closeOnClick={false}
-                        anchor="right"
+                        anchor="bottom"
                     >
-                        <div className="text-black font-sans text-center mt-1 mx-1">
+                        <div className="text-black font-sans text-center h-3.5">
                             {hoverInfo.name}
                         </div>
                     </Popup>
