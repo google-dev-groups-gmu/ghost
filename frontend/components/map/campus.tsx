@@ -6,6 +6,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { useRouter } from "next/navigation";
 import { buildings, type buildingInfo } from "@/types/buildings";
 import { campusMask, MAPBOX_TOKEN, mapStyle, MAX_BOUNDS } from "@/types/map";
+import { Dot } from "lucide-react";
 
 export default function CampusMap() {
     const router = useRouter();
@@ -15,11 +16,11 @@ export default function CampusMap() {
         <div className="relative w-screen h-screen">
             <Map
                 initialViewState={{
-                    zoom: 15,
+                    zoom: 16,
                     pitch: 30,
                     bearing: -20,
-                    longitude: -77.3074,
-                    latitude: 38.8299,
+                    longitude: -77.30761744755588,
+                    latitude: 38.83006053754113,
                 }}
                 mapStyle={mapStyle}
                 mapboxAccessToken={MAPBOX_TOKEN}
@@ -84,31 +85,19 @@ export default function CampusMap() {
                                 router.push(`/building/${b.id}`);
                             }}
                         >
-                            <div
-                                className="w-fit px-2 rounded-md cursor-pointer flex items-center justify-center shadow-lg bg-black/25"
-                                onMouseEnter={() => setHoverInfo(b)}
-                                onMouseLeave={() => setHoverInfo(null)}
-                            >
-                                <span>{b.id}</span>
+                            <div className="flex flex-col items-center">
+                                <div
+                                    className="w-fit px-2 rounded-md cursor-pointer flex items-center justify-center shadow-lg bg-black/25"
+                                    onMouseEnter={() => setHoverInfo(b)}
+                                    onMouseLeave={() => setHoverInfo(null)}
+                                >
+                                    {hoverInfo?.id === b.id ? b.name : b.id}
+                                </div>
+                                <Dot />
                             </div>
                         </Marker>
                     </div>
                 ))}
-
-                {hoverInfo && (
-                    <Popup
-                        longitude={hoverInfo.lng}
-                        latitude={hoverInfo.lat}
-                        offset={24}
-                        closeButton={false}
-                        closeOnClick={false}
-                        anchor="bottom"
-                    >
-                        <div className="text-black font-sans text-center h-3.5">
-                            {hoverInfo.name}
-                        </div>
-                    </Popup>
-                )}
             </Map>
         </div>
     );

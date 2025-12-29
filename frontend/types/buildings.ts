@@ -67,8 +67,8 @@ export const buildings: buildingInfo[] = [
     {
         id: "CH",
         name: "College Hall",
-        lat: 38.828957353150166,
-        lng: -77.30792502454875,
+        lat: 38.828903353150166,
+        lng: -77.30790502454875,
         status: "ghost",
     },
     {
@@ -81,7 +81,7 @@ export const buildings: buildingInfo[] = [
     {
         id: "E",
         name: "East Building",
-        lat: 38.83301,
+        lat: 38.83297,
         lng: -77.308297,
         status: "ghost",
     },
@@ -95,7 +95,7 @@ export const buildings: buildingInfo[] = [
     {
         id: "ENT",
         name: "Enterprise Hall",
-        lat: 38.829130185632664,
+        lat: 38.829080185632664,
         lng: -77.3059485457755,
         status: "ghost",
     },
@@ -144,7 +144,7 @@ export const buildings: buildingInfo[] = [
     {
         id: "FINLEY",
         name: "Finley Building",
-        lat: 38.833027812029414,
+        lat: 38.832967812029414,
         lng: -77.30894061520743,
         status: "ghost",
     },
@@ -207,7 +207,7 @@ export const buildings: buildingInfo[] = [
     {
         id: "KH",
         name: "Krug Hall",
-        lat: 38.83249090689985,
+        lat: 38.83242090689985,
         lng: -77.30860452044632,
         status: "ghost",
     },
@@ -221,7 +221,7 @@ export const buildings: buildingInfo[] = [
     {
         id: "MERTEN",
         name: "Merten Hall",
-        lat: 38.83502917646344,
+        lat: 38.83500917646344,
         lng: -77.30784012172086,
         status: "busy",
     },
@@ -270,7 +270,7 @@ export const buildings: buildingInfo[] = [
     {
         id: "ROGER",
         name: "Roger Hall",
-        lat: 38.834747144891864,
+        lat: 38.834647144891864,
         lng: -77.3110531588554,
         status: "ghost",
     },
@@ -305,7 +305,7 @@ export const buildings: buildingInfo[] = [
     {
         id: "W",
         name: "West Building",
-        lat: 38.832523,
+        lat: 38.832473,
         lng: -77.309195,
         status: "ghost",
     },
