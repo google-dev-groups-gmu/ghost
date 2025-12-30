@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -34,6 +35,8 @@ func GetRooms(c *gin.Context) {
 
 	// filter by building via query param ?building=HORIZN
 	buildingFilter := c.Query("building")
+	dayFilterStr := c.Query("day")
+	timeFilterStr := c.Query("time")
 
 	var iter *firestore.DocumentIterator
 	if buildingFilter != "" {
@@ -44,6 +47,21 @@ func GetRooms(c *gin.Context) {
 	defer iter.Stop()
 
 	var rooms []types.Room
+
+	var filterDay int = -1
+	if dayFilterStr != "" {
+		if d, err := strconv.Atoi(dayFilterStr); err == nil {
+			filterDay = d
+		}
+	}
+
+	var filterTime int = -1
+	if timeFilterStr != "" {
+		if t, err := strconv.Atoi(timeFilterStr); err == nil {
+			filterTime = t
+		}
+	}
+
 	for {
 		doc, err := iter.Next()
 		if err == iterator.Done {
@@ -59,6 +77,25 @@ func GetRooms(c *gin.Context) {
 		if err := doc.DataTo(&room); err != nil {
 			continue
 		}
+
+		if filterDay != -1 {
+			var todaysSchedule []types.Meeting
+
+			for _, item := range room.Schedule {
+				if item.Day == filterDay {
+					// filter only the classes that are ongoing at the specified time
+					if filterTime != -1 {
+						if item.StartTime <= filterTime && item.EndTime >= filterTime {
+							todaysSchedule = append(todaysSchedule, item)
+						}
+					} else {
+						todaysSchedule = append(todaysSchedule, item)
+					}
+				}
+			}
+			room.Schedule = todaysSchedule
+		}
+
 		rooms = append(rooms, room)
 	}
 

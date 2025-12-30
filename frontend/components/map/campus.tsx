@@ -1,16 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import Map, { Layer, Marker, Popup, Source } from "react-map-gl/mapbox";
+import Map, { Layer, Marker, Source } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { useRouter } from "next/navigation";
 import { buildings, type buildingInfo } from "@/types/buildings";
 import { campusMask, MAPBOX_TOKEN, mapStyle, MAX_BOUNDS } from "@/types/map";
 import { Dot } from "lucide-react";
+import { BuildingDrawer } from "@/components/drawer/drawer";
 
 export default function CampusMap() {
-    const router = useRouter();
     const [hoverInfo, setHoverInfo] = useState<buildingInfo | null>(null);
+    const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(
+        null
+    );
+    const [selectedBuildingName, setSelectedBuildingName] =
+        useState<string>("");
 
     return (
         <div className="relative w-screen h-screen">
@@ -82,23 +86,36 @@ export default function CampusMap() {
                             anchor="bottom"
                             onClick={(e) => {
                                 e.originalEvent.stopPropagation();
-                                router.push(`/building/${b.id}`);
+                                setSelectedBuildingId(b.id);
+                                setSelectedBuildingName(b.name);
                             }}
                         >
                             <div className="flex flex-col items-center">
                                 <div
-                                    className="w-fit px-2 rounded-md cursor-pointer flex items-center justify-center shadow-lg bg-black/25"
+                                    className="w-fit px-1.5 py-0.5 rounded cursor-pointer flex items-center justify-center shadow-lg bg-black/25 text-white text-xs"
                                     onMouseEnter={() => setHoverInfo(b)}
                                     onMouseLeave={() => setHoverInfo(null)}
                                 >
-                                    {hoverInfo?.id === b.id ? b.name : b.id}
+                                    {hoverInfo?.id === b.id ? (
+                                        <span className="text-sm">
+                                            {b.name}
+                                        </span>
+                                    ) : (
+                                        <span>{b.id}</span>
+                                    )}
                                 </div>
-                                <Dot />
+                                <Dot className="text-white" />
                             </div>
                         </Marker>
                     </div>
                 ))}
             </Map>
+
+            <BuildingDrawer
+                buildingName={selectedBuildingName}
+                buildingId={selectedBuildingId}
+                onClose={() => setSelectedBuildingId(null)}
+            />
         </div>
     );
 }
