@@ -119,11 +119,11 @@ export function BuildingDrawer({
     return (
         <div className="fixed inset-0 z-50 flex justify-end">
             <div
-                className="fixed inset-0 bg-black/50 transition-opacity"
+                className="fixed inset-0 bg-foreground/50 transition-opacity"
                 onClick={onClose}
             />
 
-            <div className="relative z-50 w-full lg:max-w-xl h-full bg-background shadow-xl border-l flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="relative z-50 w-full lg:max-w-xl h-full bg-background/75 border-l flex flex-col animate-in slide-in-from-right duration-300">
                 <div className="flex items-center justify-between p-4 border-b">
                     <div className="space-y-1">
                         <span className="text-lg font-semibold">
@@ -167,7 +167,7 @@ export function BuildingDrawer({
                                             <TableCell>
                                                 {status.roomNumber}
                                             </TableCell>
-                                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                            <TableCell className="text-xs text-muted-foreground">
                                                 {status.isOccupied
                                                     ? `${formatTime(
                                                           status.startTime!
@@ -187,7 +187,7 @@ export function BuildingDrawer({
                                                         </div>
                                                     </>
                                                 ) : (
-                                                    <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-xs ring-1 ring-inset">
+                                                    <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-xs ring-1 ring-inset ring-ring">
                                                         Empty
                                                     </span>
                                                 )}
